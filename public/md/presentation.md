@@ -147,8 +147,8 @@ Example: All in one
         FileUtils.touch 'adirectory/file1.log'
         File.exist?('adirectory/file1.log').should be_true
         File.exist?('/tmp/test/adirectory/file1.log').should be_true
-        policy_manager = stub 'delete_all', filter: []
-        purger = Purger.new policy_manager
+        policy = stub 'delete_all', filter: []
+        purger = Purger.new policy
 
         purger.purge 'adirectory', '/tmp/test'
 
@@ -162,28 +162,30 @@ Example: All in one
 Example: After refactor steps
 -----------------------------
 
-### Move to upper level of spec
+### Move to support helper, custom matcher, upper level of spec...
 
     PRECONDITION_FAILED = 'Pre-condition failed.'
 
-    subject(:purger) { Purger.new policy_manager }
-
-    def setup_fs(directory, file_names)
+    def setup_fs(directory, file_names = [])
       FileUtils.mkdir_p directory
-      file_names.each do |name|
+      Array(file_names).each do |name|
         FileUtils.touch "#{directory}/#{name}"
       end
     end
+
+    subject(:purger) { Purger.new policy }
 
 !
 
 Example: After refactor steps
 -----------------------------
 
-### Tests now look like
-
     describe '#purge' do
-      let(:policy_manager) { stub 'delete_all', filter: [] }
+      let(:policy) { stub 'delete_all', filter: [] }
+
+      def expect_purge!
+        expect{ purger.purge 'adirectory', '/tmp/test' }
+      end
 
       before do
         setup_fs '/tmp/test/adirectory', 'file1.log'
@@ -193,10 +195,7 @@ Example: After refactor steps
                PRECONDITION_FAILED
         assert File.exist?('/tmp/test/adirectory/file1.log'),
                PRECONDITION_FAILED
-
-        purger.purge 'adirectory', '/tmp/test'
       end
-
       # ...
 
 !
@@ -208,12 +207,12 @@ Example: After refactor steps
 
       # ...
 
-      it 'deletes relative to the directory' do
-        File.exist?('/tmp/test/adirectory/file1.log').should be_false
+      it 'deletes relative to the base directory' do
+        expect_purge!.to have_deleted '/tmp/test/adirectory/file1.log'
       end
 
       it 'does not delete from other directories' do
-        File.exist?('adirectory/file1.log').should be_true
+        expect_purge!.to have_kept 'adirectory/file1.log'
       end
     end
 
