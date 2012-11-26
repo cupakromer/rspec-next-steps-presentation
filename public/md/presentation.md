@@ -8,7 +8,7 @@ Aaron Kromer
 
 [http://aaronkromer.com](http://aaronkromer.com)
 
-Slides: []()
+Slides: [http://gentle-ocean-3130.herokuapp.com/](http://gentle-ocean-3130.herokuapp.com/)
 
 !
 
