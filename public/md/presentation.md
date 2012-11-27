@@ -8,7 +8,7 @@ Aaron Kromer
 
 [http://aaronkromer.com](http://aaronkromer.com)
 
-Slides: [http://gentle-ocean-3130.herokuapp.com/](http://gentle-ocean-3130.herokuapp.com/)
+Slides: [http://rspec-next-steps.herokuapp.com/](http://rspec-next-steps.herokuapp.com/)
 
 !
 
@@ -310,7 +310,185 @@ Metadata needs to be an exact match
 `subject`
 ---------
 
-* TODO YOU ARE HERE
+* The source of much controversy
+* Every `describe` block has an implicitly defined subject
+* The implicit subject will always be the outer most `describe` object
+* If the object under test is a class then the subject will be:
+
+  > `Class.new`
+
+!
+
+`subject`
+---------
+
+    module Const1
+      p self.object_id            #=> 70167384741720
+    end
+
+    describe Const1 do
+      it { p subject.object_id }  #=> 70167384741720
+      it { p subject.inspect }    #=> "Const1"
+      it { p subject.class }      #=> Module
+    end
+
+    class Const2
+      p self.object_id            #=> 70167384647720
+    end
+
+    describe Const2 do
+      it { p subject.object_id }  #=> 70122086811940
+      it { p subject.inspect }    #=> "#<Const2:0x007f8d2414a290>"
+      it { p subject.class }      #=> Const2
+    end
+
+!
+
+`subject`
+---------
+
+    Const3 = [1,2,3]
+
+    p Const3.object_id            #=> 70122086544300
+
+    describe Const3 do
+      it { p subject.object_id }  #=> 70122086544300
+      it { p subject.inspect }    #=> "[1, 2, 3]"
+      it { p subject.class }      #=> Array
+    end
+
+    describe 'a string' do
+      it { p subject.object_id }  #=> 70122086541960
+      it { p subject.inspect }    #=> "a string"
+      it { p subject.class }      #=> String
+    end
+
+!
+
+`subject`
+---------
+
+Can be overwritten. Will be set to the return value of the block.
+
+    describe User do
+      subject { [1,2,3] }
+
+      it { p subject.inspect }          #=> "[1,2,3]"
+
+      context 'will stomp subject' do
+        subject { 'testing' }
+
+        it { p subject.inspect }        #=> "testing"
+      end
+    end
+
+The `subject` block closest to the `it` block will take affect
+
+!
+
+`subject`
+---------
+
+It is lazy loaded
+
+    describe 'lazy loading' do
+      subject { puts "In subject"; 42 }
+
+      it "doesn't use subject" do
+        true.should be_true
+      end
+
+      it "uses subject" do
+        subject.should eq 42            #=> "In subject"
+      end
+    end
+
+!
+
+`subject`
+---------
+
+It is memoized
+
+    describe User do              #=> subject will be User.new
+      it {
+        p subject.object_id  #=> 70277304835320
+        p subject.object_id  #=> 70277304835320
+      }
+
+      it {
+        p subject.object_id  #=> 70277305513540
+        p subject.object_id  #=> 70277305513540
+      }
+    end
+
+But is re-created for each test.
+
+!
+
+`subject`
+---------
+
+Should be used implicitly
+
+    describe User do
+      # these are equivalent
+      it { should validate_presence_of :name }
+      it { subject.should validate_presence_of :name }  # Don't do this
+    end
+
+!
+
+Named `subject`
+---------------
+
+Just a cross between `let` and `subject`.
+
+    describe User do
+      subject(:beta_user) { User.new{|u| u.flags[:beta] = true} }
+
+      it 'allows access to new awesome feature' do
+        beta_user.can_view?(:jolly_roger).should be_true
+      end
+    end
+
+Use these all the time.
+
+!
+
+`let`
+-----
+
+    describe User do
+      let(:fred) { User.new name: 'Fred' }
+
+      it 'has name fred' do
+        fred.name.should eql 'Fred'
+      end
+    end
+
+* Similar to named `subject`, but cannot be implicitly called
+* Is memoized
+* Is lazy loaded
+* Is re-created each test
+
+!
+
+The Case For/Against `let` and `subject`
+----------------------------------------
+
+### Against
+
+* Over used
+* It's confusing with special rules and behavior
+* Harder to read code that uses it
+* _Yeah couldn't come up with anything good_
+
+### For
+
+* Less brittle code
+* Follows DRY (in the sense of one authoritative source)
+* More intent revealing when used correctly
 
 !
 
@@ -329,6 +507,17 @@ Command Line Fu
 
 * TODO: Talk about using metadata as tags
 
+!
+
+`.rspec` file
+-------------
+
+    # .rspec
+    --format <%= ENV['FORMAT'] || 'doc' %>
+
+    # command line
+    rake spec                     # Will use 'doc' format
+    FORMAT=progress autotest      # Will use 'progress' format
 !
 
 Writing Specs
