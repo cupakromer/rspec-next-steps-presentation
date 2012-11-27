@@ -410,7 +410,7 @@ It is lazy loaded
 
 It is memoized
 
-    describe User do              #=> subject will be User.new
+    describe User do         #=> subject will be User.new
       it {
         p subject.object_id  #=> 70277304835320
         p subject.object_id  #=> 70277304835320
@@ -444,7 +444,7 @@ Named `subject`
 
 Just a cross between `let` and `subject`.
 
-    describe User do
+    describe User, 'beta user' do
       subject(:beta_user) { User.new{|u| u.flags[:beta] = true} }
 
       it 'allows access to new awesome feature' do
@@ -452,7 +452,7 @@ Just a cross between `let` and `subject`.
       end
     end
 
-Use these all the time.
+Use these all the time, as they are more semantically meaningful.
 
 !
 
@@ -469,8 +469,33 @@ Use these all the time.
 
 * Similar to named `subject`, but cannot be implicitly called
 * Is memoized
-* Is lazy loaded
+* Is lazy loaded (use `let!` for eager loading)
 * Is re-created each test
+* Available in `before` blocks
+
+!
+
+`let`
+-----
+
+Can be redefined in nested contexts, but still used outside
+
+    describe OrdersController do
+      let(:user) { AnonymousUser.new }
+      subject(:order) { Order.new user: user }
+
+      before { user.age = 20 }
+
+      # ...
+
+      context 'when logged in'
+        let(:fred) { create :user, name: 'Fred', age: 30 }
+        let(:user) { fred }
+
+        it { order.user.should be fred }
+        it { fred.age.should eq 20 }
+      end
+    end
 
 !
 
@@ -492,13 +517,210 @@ The Case For/Against `let` and `subject`
 
 !
 
-Shared Examples Caveat
-----------------------
+Helper Methods
+--------------
 
-Lets, methods, etc are defined in the context: see tweet with
-Lauren
+* Plain old ruby methods
+* Can be defined in any example group (`describe`, `context`, etc.)
+* Available in the same group and child groups
+* Useful for actions (use `let` for memoized values)
 
-https://gist.github.com/4125789
+!
+
+Helper Methods
+--------------
+
+    describe OrdersController do
+      def sign_user_in
+        # create user and session, store user id in session hash
+        # return created user
+      end
+
+      context 'user should be signed in' do
+        it do
+          current_user = sign_user_in
+          current_user.should be_signed_in
+        end
+      end
+    end
+
+!
+
+Helper Methods
+--------------
+
+Can be defined in a module then included
+
+    module Devise::SpecHelpers
+      def sign_user_in(user)
+        # ...
+      end
+    end
+
+    describe OrderController do
+      include Devise::SpecHelpers         # Include in just this group
+
+      before { sign_user_in build_stubbed :user }
+      # ...
+    end
+
+    RSpec.configure do |c|                # Include in ALL example groups
+      config.include Devise::SpecHelpers  # Can also call config.extend
+    end                                   # Can use metadata to include too
+
+!
+
+Helper Methods
+--------------
+
+Since this is just plain ruby code you can do anything
+
+    describe 'Complex task' do
+      def fetch_and_manipulate_file_contents(file_name)
+        File.open(file_name) do |f|
+          # do a bunch of stuff to f
+          yield f
+        end
+      end
+
+      it 'manipulates the file' do
+        fetch_and_manipulate_file_contents('/tmp/rspec/steps.md') do |file|
+          # ...
+        end
+      end
+    end
+
+!
+
+Shared Examples
+---------------
+
+* A way to share tests (behavior) across specs
+* Files defining shared examples need to be loaded before files that use them
+* Shared examples have access to
+  * `let`, `subject`, and helper methods defined in the including example group
+  * _**MAY**_ affect the following examples with their stubs, methods, etc.
+
+!
+
+Shared Examples
+---------------
+
+* Invoked in current example (behaves as if defined inline, affects stubs etc)
+  * `include_examples` behaves as if it was inline; stubs, etc. bleed
+  * matching metadata behaves as if it was inline; stubs, etc. bleed
+* Invoked in nested example group (does not affect stubs, etc)
+  * `it_behaves_like` behaves as it's own nested context
+  * `it_should_behave_like` behaves as it's own nested context
+
+!
+
+Shared Examples
+---------------
+
+    shared_examples "filterable" do
+      let(:bar) { 42 }
+      before { @foo.stub(:jump).and_return true }
+
+      it { baz.should eq 10 }           # Pass
+      it { check.should eq 20 }         # Pass
+      it { @foo.jump.should be_true }   # Pass
+    end
+
+    describe 'FileFilter' do
+      def check() 20 end
+      let(:baz) { 10 }
+      before { @foo = stub('test').tap{|s| s.stub(:run).and_return true} }
+
+      it_behaves_like "filterable"      # Nested
+
+      it { @foo.run.should be_true }    # Pass
+      it { @foo.jump.should be_true }   # Fail
+      it { bar.should eq 42 }           # Fail
+    end
+
+!
+
+Shared Examples
+---------------
+
+    shared_examples "filterable" do
+      let(:bar) { 42 }
+      before { @foo.stub(:jump).and_return true }
+
+      it { @foo.jump.should be_true }   # Pass
+    end
+
+    describe 'FileFilter' do
+      def check() 20 end
+      let(:baz) { 10 }
+      before { @foo = stub('test').tap{|s| s.stub(:run).and_return true} }
+
+      include_examples "filterable"     # Current context (i.e. inline)
+
+      it { @foo.run.should be_true }    # Pass
+      it { @foo.jump.should be_true }   # Pass
+      it { bar.should eq 42 }           # Pass
+    end
+
+!
+
+Shared Examples
+---------------
+
+Alias `it_should_behave_like`, runs in nested example group
+
+    # spec/spec_helper.rb
+    RSpec.configure do |config|
+      config.alias_it_should_behave_like_to :has_behavior, 'has behavior:'
+    end
+
+    # spec file
+    describe User do
+      has_behavior 'recoverable'
+    end
+
+!
+
+Shared Examples
+---------------
+
+Pass parameters to the shared example
+
+    shared_examples "token protection" do |http_method, method|
+      let(:invalid_json) { {error: "Token is invalid."}.to_json }
+
+      context 'no authentication token provided' do
+        before { self.public_send http_method, method, format: :json }
+
+        it { should respond_with 401 }
+        it { should respond_with_content_type :json }
+        it { should have_response_body invalid_json }
+      end
+    end
+
+    describe OrdersController do
+      has_behavior "token protection", :post, :create
+    end
+
+!
+
+Shared Examples
+---------------
+
+You can nest shared examples
+
+    shared_examples "CRUD token protection", token_protect: :crud do
+      has_behavior "token protection", :get, :new
+      has_behavior "token protection", :post, :create
+      has_behavior "token protection", :get, :show
+      has_behavior "token protection", :get, :edit
+      has_behavior "token protection", :put, :update
+      has_behavior "token protection", :delete, :destroy
+    end
+
+    describe AccountsController, token_protect: :crud do
+    end
 
 !
 
@@ -518,6 +740,27 @@ Command Line Fu
     # command line
     rake spec                     # Will use 'doc' format
     FORMAT=progress autotest      # Will use 'progress' format
+!
+
+Misc
+----
+
+Use Ruby code to tighten avoid repeated examples
+
+    describe Calculator do
+      subject(:calc) { Calculator.new }
+
+      [
+        [1, 1, 2],
+        [2, 2, 4],
+        [-4, 3, -1],
+      ].each do |num1, num2, sum|
+        it "example: #{num1} + #{num2} = #{sum}" do
+          calc.add(num1, num2).should eq sum
+        end
+      end
+    end
+
 !
 
 Writing Specs
