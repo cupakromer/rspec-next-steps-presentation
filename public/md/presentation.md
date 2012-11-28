@@ -1087,6 +1087,69 @@ Use Ruby code to tighten spec and avoid repeated examples
 
 !
 
+Misc
+----
+
+Use `match_array` because the following sucks
+
+    describe 'compare arrays' do
+      it 'this fails because array order matters' do
+        [1, 2, 3].should eq [2, 1, 3]
+      end
+      # Failure/Error: [1, 2, 3].should eq [2, 1, 3]
+      #     expected: [2, 1, 3]
+      #     got: [1, 2, 3]
+    end
+
+!
+
+Misc
+----
+
+Awesome `match_array`!
+
+    describe 'compare arrays' do
+      it 'this passes because we used awesome `match_array`' do
+        [1, 2, 3].should match_array [2, 1, 3]
+      end
+
+      it 'this fails with a better message' do
+        [1, 2, 3].should match_array [2, 1, 1, 4]
+      end
+      # Failure/Error: [1, 2, 3].should match_array [2, 1, 1, 4]
+      #     expected collection contained:  [1, 1, 2, 4]
+      #     actual collection contained:    [1, 2, 3]
+      #     the missing elements were:      [1, 4]
+      #     the extra elements were:        [3]
+    end
+
+!
+
+Misc
+----
+
+Become friends with `and_yield` and the [matchers](https://www.relishapp.com/rspec/rspec-expectations/v/2-12/docs/built-in-matchers/yield-matchers)
+
+    # controller
+    user = User.new(safe_params){ |u|
+      u.admin = true
+      'unexpected'
+    }
+
+    # spec
+    describe 'sets the admin flag to true' do
+      spec_user = OpenStruct.new admin: false
+
+      User.stub(:new).and_yield(spec_user).and_return(spec_user)
+
+      spec_user.admin.should be_true
+    end
+
+Always use `and_return` when using `and_yield`! Because the return value will
+be the last statement in the block under test. So above `user = 'unexpected'`
+
+!
+
 Writing Specs
 -------------
 
@@ -1186,7 +1249,7 @@ Example: After refactor steps
 Custom Formatters
 -----------------
 
-### OMG WTF GEM
+### OMG WTF!! GEM?!?!?!
 
 ### [emoji-rspec](https://github.com/cupakromer/emoji-rspec)
 
@@ -1217,14 +1280,19 @@ References
 ### thoughtbot Shoulda-Matchers
 * [http://rubydoc.info/github/thoughtbot/shoulda-matchers/master/frames](http://rubydoc.info/github/thoughtbot/shoulda-matchers/master/frames)
 
+### Better Specs
+* [betterspecs.org](http://betterspecs.org)
+
 !
 
 Thanks & Questions?
 -------------------
 
 Slides: [http://rspec-next-steps.herokuapp.com/](http://rspec-next-steps.herokuapp.com/)
+
 Presentation: [cupakromer/rspec-next-steps](https://github.com/cupakromer/rspec-next-steps-presentation)
 
-### Made Width
+### Made With
 
-TODO
+* [Markdown Presenter](https://github.com/chrishulbert/MarkdownPresenter)
+* [Highlight.js](http://softwaremaniacs.org/soft/highlight/en/)
