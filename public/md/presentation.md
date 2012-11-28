@@ -972,7 +972,83 @@ Custom Matchers (Class)
 Command Line Fu
 ---------------
 
-* TODO: Talk about using metadata as tags
+* There are lots of options run `rspec --help` for the full list
+* See also [command line specs](https://www.relishapp.com/rspec/rspec-core/v/2-12/docs/command-line)
+
+!
+
+Command Line Fu
+---------------
+
+Run a subset of the examples
+
+    -e, --example STRING
+        Run examples whose full nested names include STRING (may be
+        used more than once)
+    -l, --line-number LINE
+        Specify line number of an example or group (may be
+        used more than once).
+        Short cut: rspec spec/my_example.rb:20
+    -t, --tag TAG[:VALUE]
+        Run examples with the specified tag, or exclude examples
+        by adding ~ before the tag.
+        - e.g. ~slow
+        - TAG is always converted to a symbol
+    --pattern PATTERN
+        Run specs with files matching the glob pattern
+        E.g. "spec/**/*_controller_spec.rb"
+
+!
+
+Command Line Fu
+---------------
+
+Adjust how the specs are run
+
+    --order TYPE[:SEED]
+        [default] files are ordered based on the underlying file
+        system's order
+        [rand]    randomize the order of files, groups and examples
+        [random]  alias for rand
+        [random:SEED] e.g. --order random:123
+
+Add `--order rand` to your `.rspec` file. Do it. Do it now.
+
+Stop running specs after first failuer
+
+    --fail-fast
+
+!
+
+Command Line Fu
+---------------
+
+See your 10 slowest specs
+
+    rspec --profile
+
+    Top 10 slowest examples (4.04 seconds, 13.6% of total time):
+       /api/long slow api call
+       1.19 seconds ./spec/apis/long_spec.rb:90
+       /api/long other options that are faster
+       0.37662 seconds ./spec/apis/long_spec.rb:58
+       Send an email to a nil address
+       0.36716 seconds ./spec/controllers/api/proxy_controller_spec.rb:39
+       Hit the mail host
+       0.32698 seconds ./spec/models/host_email_forwarder_spec.rb:59
+       OrdersController#create with valid order
+       0.30892 seconds ./spec/controllers/orders_controller_spec.rb:97
+       OrdersController#registration not logged in with valid order form
+       0.30848 seconds ./spec/controllers/orders_controller_spec.rb:187
+       OrdersController#create with valid order
+       0.30013 seconds ./spec/controllers/orders_controller_spec.rb:98
+       OrdersController#registration not logged in with valid order form
+       0.29407 seconds ./spec/controllers/orders_controller_spec.rb:185
+       Order#save_with_payment! with valid order registers items
+       0.29017 seconds ./spec/models/order_spec.rb:160
+       Order#save_with_payment! with valid order charges the customer
+       0.27348 seconds ./spec/models/order_spec.rb:197
+
 
 !
 
@@ -1053,9 +1129,11 @@ Example: After refactor steps
 
 ### Move to support helper, custom matcher, upper level of spec...
 
-    PRECONDITION_FAILED = 'Pre-condition failed.'
+    def precondition_check(&block)
+      assert block.call, "Pre-condition failed."
+    end
 
-    def setup_fs(directory, file_names = [])
+    def fs_create(directory, file_names = [])
       FileUtils.mkdir_p directory
       Array(file_names).each do |name|
         FileUtils.touch "#{directory}/#{name}"
@@ -1069,7 +1147,7 @@ Example: After refactor steps
 Example: After refactor steps
 -----------------------------
 
-    describe '#purge' do
+    describe '#purge', 'using delete all policy' do
       let(:policy) { stub 'delete_all', filter: [] }
 
       def expect_purge!
@@ -1077,11 +1155,11 @@ Example: After refactor steps
       end
 
       before do
-        setup_fs '/tmp/test/adirectory', 'file1.log'
-        setup_fs 'adirectory', 'file1.log'
+        fs_create '/tmp/test/adirectory', 'file1.log'
+        fs_create 'adirectory', 'file1.log'
 
-        assert File.exist?('adirectory/file1.log'), PRECONDITION_FAILED
-        assert File.exist?('/tmp/test/adirectory/file1.log'), PRECONDITION_FAILED
+        precondition_check{ File.exist? 'adirectory/file1.log' }
+        precondition_check{ File.exist? '/tmp/test/adirectory/file1.log' }
       end
       # ...
 
