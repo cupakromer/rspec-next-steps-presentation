@@ -103,7 +103,7 @@ Metadata For External Dependencies
 
     # spec/spec_helper.rb
     RSpec.configure do |c|
-      c.filter = {
+      c.exclusion_filter = {
         if: ->(check) {
           case check
           when :redis_running; # ...
@@ -724,6 +724,248 @@ You can nest shared examples
 
 !
 
+Shared Examples
+---------------
+
+Or make it more dynamic with more metadata
+
+    shared_examples "CRUD token protection", token_protect: :crud do
+      get_http_crud_actions(example.metadata[:actions])
+        .each do |action, http_method|
+        it_behaves_like "token protection", http_method, action
+      end
+    end
+
+    describe 'OrdersController',
+              token_protect: :crud,
+              actions: [:new, :create]  do
+    end
+
+!
+
+Shared Context
+--------------
+
+The ability to define shared setup
+
+    shared_context "beta user fred", beta_user: :fred do
+      def current_user() beta_user end
+
+      let(:password) { 'need to change' }
+      subject(:beta_user) { build_stubbed :user, name: 'Fred' }
+
+      before { beta_user.password = 'need to change' }
+    end
+
+    describe SessionsController do
+      include_context "beta user fred"
+
+      it { current_user.should be beta_user }
+      it { password.should eq 'need to change' }
+      it { beta_user.password.should eq 'need to change' }
+    end
+
+!
+
+Shared Context
+--------------
+
+Just like shared examples, these can be included just by metadata
+
+    describe SessionsController, beta_user: :fred do
+      it { current_user.should be beta_user }
+      it { password.should eq 'need to change' }
+      it { beta_user.password.should eq 'need to change' }
+    end
+
+!
+
+Custom Matchers (DSL)
+---------------------
+
+* Creating custom matchers has never been easier
+* There is no excuse not to be creating them
+* They will make both the specs and the document format output read so much cleaner
+
+!
+
+Custom Matchers (DSL)
+---------------------
+
+    RSpec::Matchers.define :have_access_to do |beta_feature|
+      # Name of matcher (i.e. 'have_access_to') is available with @name
+
+      match do |user|
+        FeatureToggle.has_access?(user, beta_feature)
+      end
+    end
+
+    describe User, beta_user: :fred do
+      it { should have_access_to :mystery_machine }
+    end
+
+RSpec::Matchers will auto generate the success message:
+
+> _should have access to mystery\_machine_
+
+And the failure message:
+
+> _expected &lt;User: Fred&gt; to have access to mystery\_machine_
+
+!
+
+Custom Matchers (DSL)
+---------------------
+
+    RSpec::Matchers.define :have_access_to do |beta_feature|
+      # ...
+
+      define_method :feature_name do
+        @fname ||= beta_feature.to_s.tr('_', ' ')
+      end
+
+      def beta_user(user)
+        "beta user #{user.name.capitalize}"
+      end
+
+      description do
+        "have access to the beta feature #{feature_name}"
+      end
+
+      failure_message_for_should do |u|
+        "expected #{beta_user(u)} to be able to access #{feature_name}"
+      end
+
+      failure_message_for_should_not do |u|
+        "expected #{beta_user(u)} to be denied access to #{feature_name}"
+      end
+    end
+
+!
+
+Custom Matchers (DSL)
+---------------------
+
+    RSpec::Matchers.define :have_access_to do |beta_feature|
+      match do |user|
+        FeatureToggle.has_access?(user, beta_feature, @time_limit)
+      end
+
+      chain :for(time_limit)
+        @time_limit = time_limit
+      end
+    end
+
+    describe User, beta_user: :fred do
+      it { should have_access_to(:mystery_machine).for 5.days }
+    end
+
+!
+
+Custom Matchers (DSL)
+---------------------
+
+    RSpec::Matchers.define :have_access_to do |*features|
+      match_for_should do |user|
+        features.all? { |feature|
+          FeatureToggle.has_access?(user, feature)
+        }
+      end
+
+      match_for_should_not do |user|
+        features.none? { |feature|
+          FeatureToggle.has_access?(user, feature)
+        }
+      end
+    end
+
+    describe User, beta_user: :fred do
+      it { should have_access_to(:clues, :monsters, :snacks) }
+    end
+
+!
+
+Custom Matchers (DSL)
+---------------------
+
+    RSpec::Matchers.define :create_a_new_record_of do |model_class|
+      match do |expectation_action|
+        before = model_class.all
+
+        expectation_action.call
+
+        after = model_class.all
+
+        @created = after - before
+        @created.count == 1
+      end
+
+      description { "creates a new #{model_class}" }
+
+      failure_message_for_should {
+        "expected to create a new record of #{model_class} but created " +
+        (@created.count == 0 ? "0" : "#{@created.count}:\n#{@created}")
+      }
+    end
+
+    describe UsersController, "with valid form" do
+      it { expect{ post :create }.to create_a_new_record_of User }
+    end
+
+!
+
+Custom Matchers (Class)
+-----------------------
+
+* Faster than the DSL
+* If there are a lot of potential chains and conditional output formating,
+  you should avoid the DSL and then use condition specific classes
+* Utilizes the message protocol (no need to subclass or `include` anything)
+
+!
+
+Custom Matchers (Class)
+-----------------------
+
+* `matches?`
+> Needs to return `truthy` for a passing example, `falsey` for failing
+* `failure_message_for_should`
+> The message to be used when you use `matches?` returns `falsey`
+
+* `failure_message_for_should_not` _optional_
+* `description` _optional_
+* `does_not_match?` _optional_
+
+!
+
+Custom Matchers (Class)
+-----------------------
+
+    def have_access_to(beta_feature) HaveAccessTo.new(beta_feature) end
+
+    class HaveAccessTo
+      attr_accessor :user, :beta_feature
+
+      def initialize(beta_feature) self.feature = beta_feature end
+
+      def matches?(user)
+        self.user = user
+        FeatureToggle.has_access?(user, beta_feature)
+      end
+
+      def failure_message_for_should
+        "expected #{beta_user} to be able to access #{feature_name}"
+      end
+
+      def feature_name
+        @fname ||= beta_feature.to_s.tr('_', ' ')
+      end
+
+      def beta_user() "beta user #{user.name.capitalize}" end
+    end
+
+!
+
 Command Line Fu
 ---------------
 
@@ -734,12 +976,15 @@ Command Line Fu
 `.rspec` file
 -------------
 
+OMG, ERB in my `.rpsec`!?!?!?
+
     # .rspec
     --format <%= ENV['FORMAT'] || 'doc' %>
 
     # command line
     rake spec                     # Will use 'doc' format
     FORMAT=progress autotest      # Will use 'progress' format
+
 !
 
 Misc
