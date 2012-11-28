@@ -8,8 +8,6 @@ Aaron Kromer
 
 [http://aaronkromer.com](http://aaronkromer.com)
 
-Slides: [http://rspec-next-steps.herokuapp.com/](http://rspec-next-steps.herokuapp.com/)
-
 !
 
 Use Contexts
@@ -452,6 +450,10 @@ Just a cross between `let` and `subject`.
       end
     end
 
+    describe OrdersController, 'with valid form' do
+      subject(:order) { post(:create); @controller }
+    end
+
 Use these all the time, as they are more semantically meaningful.
 
 !
@@ -514,6 +516,7 @@ The Case For/Against `let` and `subject`
 * Less brittle code
 * Follows DRY (in the sense of one authoritative source)
 * More intent revealing when used correctly
+* [barewords](http://devblog.avdi.org/2012/10/01/barewords/) FTW (this also applies to helper methods...)
 
 !
 
@@ -990,7 +993,7 @@ OMG, ERB in my `.rpsec`!?!?!?
 Misc
 ----
 
-Use Ruby code to tighten avoid repeated examples
+Use Ruby code to tighten spec and avoid repeated examples
 
     describe Calculator do
       subject(:calc) { Calculator.new }
@@ -1018,6 +1021,7 @@ Writing Specs
 * Add common setup code to `before` block
 * Break out common actions into methods
 * Break out common variables into `let` blocks
+* Write custom matchers
 
 !
 
@@ -1101,6 +1105,15 @@ Example: After refactor steps
 
 !
 
+Custom Formatters
+-----------------
+
+### OMG WTF GEM
+
+### [emoji-rspec](https://github.com/cupakromer/emoji-rspec)
+
+!
+
 References
 ----------
 
@@ -1128,7 +1141,12 @@ References
 
 !
 
-Whats stopping you?
+Thanks & Questions?
 -------------------
 
-Any questions?
+Slides: [http://rspec-next-steps.herokuapp.com/](http://rspec-next-steps.herokuapp.com/)
+Presentation: [cupakromer/rspec-next-steps](https://github.com/cupakromer/rspec-next-steps-presentation)
+
+### Made Width
+
+TODO
