@@ -1131,10 +1131,7 @@ Misc
 Become friends with `and_yield` and the [matchers](https://www.relishapp.com/rspec/rspec-expectations/v/2-12/docs/built-in-matchers/yield-matchers)
 
     # controller
-    user = User.new(safe_params){ |u|
-      u.admin = true
-      'unexpected'
-    }
+    user = User.new(safe_params){ |u| u.admin = true }
 
     # spec
     describe 'sets the admin flag to true' do
@@ -1145,8 +1142,47 @@ Become friends with `and_yield` and the [matchers](https://www.relishapp.com/rsp
       spec_user.admin.should be_true
     end
 
-Always use `and_return` when using `and_yield`! Because the return value will
-be the last statement in the block under test. So above `user = 'unexpected'`
+Always use `and_return` when using `and_yield`! Otherwise the return value will
+be the last statement in the block under test. So above: `user == true`
+
+!
+
+Misc
+----
+
+You can add minitest to your rspec
+
+    RSpec.configure do |config|
+      config.expect_with :rspec, :stdlib
+    end
+
+!
+
+Misc
+----
+
+Stubbing Constants!!! New in 2.12! Upgrade today!
+
+    module Cool
+      DR_WHO = "I'm the doctor"
+
+      class Companion; end
+    end
+
+    describe 'stub a constant' do
+      let(:amy) { Class.new }
+      it 'requires the full name' do
+        stub_const("Cool::Companion", amy, transfer_nested_constants: true)
+        Cool::Companion.should be amy
+      end
+    end
+
+    describe 'hide a constant' do
+      it 'fails with NameError' do
+        hide_const("Cool::DR_WHO")
+        expect{ Coo::DR_WHO }.to raise_error NameError
+      end
+    end
 
 !
 
